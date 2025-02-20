@@ -4,8 +4,10 @@ const multer = require('multer');
 const { Storage } = require('@google-cloud/storage');
 const path = require('path');
 
+const credentials = JSON.parse(process.env.REACT_APP_GOOGLE_APPLICATION_CREDENTIALS_JSON);
+
 const storage = new Storage({
-    keyFilename: path.join(__dirname, process.env.GOOGLE_APPLICATION_CREDENTIALS),
+    credentials, // Use parsed credentials from .env
 });
 
 const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
