@@ -56,21 +56,31 @@ const getLocationDetails = async (latitude, longitude) => {
     }
 };
 
-
-
 // Clock-In Function
 exports.clockIn = async (req, res) => {
     const user_id = req.user.id;
     const evidence_photo_clockin = req.file?.cloudStoragePublicUrl; 
-
     const latitude = req.body.latitude;
     const longitude = req.body.longitude || req.body.longtitude;
+    const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
     if (!user_id || !evidence_photo_clockin || !latitude || !longitude) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
     try {
+        // Check if user has already clocked in today
+        const existingClockIn = await Attendance.findOne({
+            where: {
+                user_id,
+                clock_in: { [Op.gte]: new Date(`${currentDate}T00:00:00.000Z`) }
+            }
+        });
+
+        if (existingClockIn) {
+            return res.status(400).json({ error: 'Already clocked in today' });
+        }
+
         // Fetch location from Google Maps API
         const location_clockin = await getLocationDetails(latitude, longitude);
         // Create new clock-in record
@@ -92,11 +102,10 @@ exports.clockIn = async (req, res) => {
     }
 };
 
-
 // Clock-Out Function
 exports.clockOut = async (req, res) => {
     const user_id = req.user.id;
-    const evidence_photo_clockout = req.file?.cloudStoragePublicUrl; // ✅ Clock-out photo
+    const evidence_photo_clockout = req.file?.cloudStoragePublicUrl; 
     const { latitude, longitude } = req.body;
     const clock_out = new Date();
     const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
@@ -107,7 +116,7 @@ exports.clockOut = async (req, res) => {
 
     try {
         // Check if user has an active clock-in for today
-        let attendance = await Attendance.findOne({
+        const attendance = await Attendance.findOne({
             where: {
                 user_id,
                 clock_in: { [Op.gte]: new Date(`${currentDate}T00:00:00.000Z`) },
@@ -139,8 +148,7 @@ exports.clockOut = async (req, res) => {
     }
 };
 
-
-// gett all attendance based on user id
+// Get all attendance based on user id
 exports.getAttendanceByID = async (req, res) => {
     const user_id = req.user.id;
     try {
@@ -154,5 +162,42 @@ exports.getAttendanceByID = async (req, res) => {
         console.error("Error fetching attendance:", error);
         res.status(500).json({ error: 'Failed to fetch attendance', details: error.message });
     }
-
 };
+
+// Check attendance status
+exports.attendanceStatus = async (req, res) => {
+    const user_id = req.user.id;
+    const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    try {
+        const clockInAttendance = await Attendance.findOne({
+            where: {
+                user_id,
+                clock_in: { [Op.gte]: new Date(`${currentDate}T00:00:00.000Z`) },
+                clock_out: null
+            }
+        });
+
+        const clockOutAttendance = await Attendance.findOne({
+            where: {
+                user_id,
+                clock_out: { [Op.gte]: new Date(`${currentDate}T00:00:00.000Z`) }
+            }
+        });
+
+        if (clockInAttendance && clockOutAttendance) {
+            return res.status(200).json({ status: 'clocked-in-clocked-out', attendance: clockOutAttendance });
+        }
+
+        if (clockInAttendance) {
+            return res.status(200).json({ status: 'clocked-in', attendance: clockInAttendance });
+        }
+
+        return res.status(200).json({ status: 'not-clocked-in' });
+
+    } catch (error) {
+        console.error("Attendance Status Error:", error);
+        return res.status(500).json({ error: 'Failed to check attendance status', details: error.message });
+    }
+}
+
