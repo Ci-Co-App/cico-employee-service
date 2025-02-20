@@ -27,5 +27,5 @@ app.use("/api/cico/employee", require("./routes/attendanceRoutes"));
     }
 })();
 
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
