@@ -4,11 +4,8 @@ const multer = require('multer');
 const { Storage } = require('@google-cloud/storage');
 const path = require('path');
 
-const credentials = JSON.parse(process.env.REACT_APP_GOOGLE_APPLICATION_CREDENTIALS_JSON);
-
-const storage = new Storage({
-    credentials, // Use parsed credentials from .env
-});
+// ✅ Use Google’s default authentication (Cloud Run auto-detects)
+const storage = new Storage();
 
 const bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
 
@@ -26,7 +23,6 @@ const upload = multer({
 
 const uploadImageToGCS = async (req, res, next) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-
 
     const fileName = `attendance_photos/${Date.now()}-${req.file.originalname.replace(/\s+/g, "-")}`;
     const file = bucket.file(fileName);
@@ -47,6 +43,5 @@ const uploadImageToGCS = async (req, res, next) => {
 
     stream.end(req.file.buffer);
 };
-
 
 module.exports = { upload, uploadImageToGCS };
